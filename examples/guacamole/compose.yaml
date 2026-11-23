@@ -1,0 +1,45 @@
+# Apache Guacamole + bmc-console, one BMC.
+#
+#   cp example.env .env       # edit: mode, BMC host, credentials
+#   docker compose up -d --build
+#   open http://127.0.0.1:8080/guacamole/   (login: see guacamole-home/user-mapping.xml)
+#
+# The bridge only listens on loopback, so it shares guacd's network namespace
+# (network_mode: service:guacd). guacd reaches it at 127.0.0.1:5901 and nothing
+# else can.
+services:
+  guacd:
+    image: guacamole/guacd:1.5.5
+    restart: unless-stopped
+
+  bmc-bridge:
+    build: ../..
+    image: bmc-console:local
+    network_mode: service:guacd
+    restart: unless-stopped
+    command:
+      - -mode=${BMC_MODE:-demo}
+      - -host=${BMC_HOST:-}
+      - -listen=127.0.0.1:5901
+      # Uncomment for BMCs with a self-signed certificate in an isolated lab.
+      # Prefer adding the BMC's CA instead (see docs/guacamole.md).
+      # - -insecure-bmc-tls
+    environment:
+      BMC_USER: ${BMC_USER:-}
+      BMC_PASSWORD: ${BMC_PASSWORD:-}
+      VNC_PASSWORD: ${VNC_PASSWORD:-}
+
+  guacamole:
+    image: guacamole/guacamole:1.5.5
+    restart: unless-stopped
+    depends_on: [guacd]
+    environment:
+      GUACD_HOSTNAME: guacd
+      GUACD_PORT: "4822"
+      # Copied into the generated GUACAMOLE_HOME at start-up; enables the
+      # built-in file authentication from user-mapping.xml.
+      GUACAMOLE_HOME: /etc/guacamole-template
+    volumes:
+      - ./guacamole-home:/etc/guacamole-template:ro
+    ports:
+      - 127.0.0.1:8080:8080

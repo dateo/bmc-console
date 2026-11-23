@@ -1,0 +1,19 @@
+<!--
+  Minimal file-based Guacamole configuration for testing.
+  Change both passwords. For production use a database, LDAP, SSO or the
+  JSON auth extension instead of this file.
+-->
+<user-mapping>
+    <authorize username="operator" password="change-me">
+        <connection name="BMC console">
+            <protocol>vnc</protocol>
+            <!-- Address as seen from guacd: the bridge shares its network namespace. -->
+            <param name="hostname">127.0.0.1</param>
+            <param name="port">5901</param>
+            <!-- Same value as VNC_PASSWORD. -->
+            <param name="password">change8!</param>
+            <param name="color-depth">24</param>
+            <param name="cursor">remote</param>
+        </connection>
+    </authorize>
+</user-mapping>

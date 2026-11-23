@@ -1,0 +1,15 @@
+# Build output; release binaries belong in GitHub Releases.
+/bin/
+/bmc-vnc
+/dist/
+
+# Test captures
+/*.png
+
+# Local credentials
+*.env
+!example.env
+.env*
+
+# Tooling
+.playwright-mcp/

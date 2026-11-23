@@ -1,0 +1,32 @@
+bmc-console
+Copyright 2026 The bmc-console Authors
+
+Licensed under the Apache License, Version 2.0. See the LICENSE file for the
+full license text.
+
+This product is a derivative work of the following projects, both licensed
+under the Apache License, Version 2.0. Their NOTICE files are reproduced
+unchanged alongside this one, as Section 4(d) of the license requires:
+
+  Firstlight    https://github.com/ThatIsCraZy/Firstlight     NOTICE-firstlight
+  ipmi-connect  https://github.com/mhamzahkhan/ipmi-connect   NOTICE-ipmi-connect
+
+The files taken from them were modified. THIRD_PARTY_NOTICES.md lists the
+exact upstream revisions and summarizes the changes.
+
+--------------------------------------------------------------------------------
+Non-affiliation and trademark notice
+--------------------------------------------------------------------------------
+
+bmc-console is an independent open-source project. It is not affiliated with,
+sponsored by, endorsed by or supported by Hewlett Packard Enterprise, Dell
+Technologies, Super Micro Computer, ATEN International, ASPEED Technology or
+The Apache Software Foundation.
+
+HPE, iLO and ProLiant are trademarks of Hewlett Packard Enterprise Development
+LP. Dell, PowerEdge and iDRAC are trademarks of Dell Inc. or its subsidiaries.
+Supermicro is a trademark of Super Micro Computer, Inc. ATEN is a trademark of
+ATEN International. Apache, Apache Guacamole and Guacamole are trademarks of
+The Apache Software Foundation. These names are used only to describe
+interoperability. Per Section 6 of the Apache License, Version 2.0, the license
+grants no permission to use them.

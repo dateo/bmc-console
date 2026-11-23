@@ -1,0 +1,74 @@
+# guacd with one bmc-console sidecar per BMC.
+#
+# Containers in a Pod share a network namespace, so each bridge listens on its
+# own loopback port and only guacd can reach it. Point your Guacamole server at
+# the guacd Service as usual (GUACD_HOSTNAME=guacd) and create one VNC
+# connection per BMC with hostname 127.0.0.1 and the bridge's port.
+#
+# The guacd Pod also needs a network route to the BMC management network.
+# A NetworkPolicy should restrict ingress on 4822 to the Guacamole web app.
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bmc-rack1-node1
+type: Opaque
+stringData:
+  BMC_USER: console-operator
+  BMC_PASSWORD: replace-me
+  VNC_PASSWORD: 8chars!!   # exactly 8 ASCII characters
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: guacd
+spec:
+  replicas: 1   # each bridge serves one viewer; do not scale horizontally
+  selector:
+    matchLabels: {app: guacd}
+  template:
+    metadata:
+      labels: {app: guacd}
+    spec:
+      containers:
+        - name: guacd
+          image: guacamole/guacd:1.5.5
+          ports:
+            - containerPort: 4822
+        - name: bmc-rack1-node1
+          image: bmc-console:local   # build from this repository's Dockerfile
+          args:
+            - -mode=bmc
+            - -host=ilo-rack1-node1.mgmt.example.net
+            - -listen=127.0.0.1:5901
+          envFrom:
+            - secretRef:
+                name: bmc-rack1-node1
+          # Trust a private BMC CA instead of using -insecure-bmc-tls:
+          # env:
+          #   - name: SSL_CERT_FILE
+          #     value: /etc/bmc-ca/ca.crt
+          # volumeMounts:
+          #   - {name: bmc-ca, mountPath: /etc/bmc-ca, readOnly: true}
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 50m, memory: 32Mi}
+            limits: {memory: 256Mi}
+        # Add one container per further BMC: -listen=127.0.0.1:5902, ...
+      # volumes:
+      #   - name: bmc-ca
+      #     configMap: {name: bmc-ca}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: guacd
+spec:
+  selector: {app: guacd}
+  ports:
+    - port: 4822
+      targetPort: 4822
