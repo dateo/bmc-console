@@ -68,77 +68,102 @@ func (v *viewer) send(p []byte) error {
 	_, err := v.Write(p)
 	return err
 }
-func (v *viewer) handshake(pw string) error {
+
+// Authenticator checks a classic VNC authentication response against the
+// 16-byte challenge sent to the viewer. On success it returns the opener for
+// the viewer's backend; ok=false denies the viewer.
+type Authenticator func(challenge, response [16]byte) (open OpenFunc, ok bool)
+
+// VNCResponse computes the reply a viewer sends for password and challenge:
+// DES-ECB with the bit-reversed, zero-padded first 8 password bytes as key.
+func VNCResponse(password string, challenge [16]byte) [16]byte {
+	var key [8]byte
+	copy(key[:], password)
+	for i := range key {
+		key[i] = bits.Reverse8(key[i])
+	}
+	c, err := des.NewCipher(key[:])
+	if err != nil {
+		panic(err) // unreachable: the key is always 8 bytes
+	}
+	var out [16]byte
+	c.Encrypt(out[:8], challenge[:8])
+	c.Encrypt(out[8:], challenge[8:])
+	return out
+}
+
+// PasswordAuth returns an Authenticator that accepts one fixed password.
+func PasswordAuth(password string, open OpenFunc) Authenticator {
+	return func(challenge, response [16]byte) (OpenFunc, bool) {
+		want := VNCResponse(password, challenge)
+		if subtle.ConstantTimeCompare(want[:], response[:]) != 1 {
+			return nil, false
+		}
+		return open, true
+	}
+}
+
+// handshake runs the RFB version and security exchange. With a nil auth the
+// viewer gets security type None and noAuth is returned; otherwise classic VNC
+// authentication decides which opener the viewer gets.
+func (v *viewer) handshake(auth Authenticator, noAuth OpenFunc) (OpenFunc, error) {
 	if err := v.send([]byte("RFB 003.008\n")); err != nil {
-		return err
+		return nil, err
 	}
 	p, e := v.read(12)
 	if e != nil {
-		return e
+		return nil, e
 	}
 	ver := string(p)
 	if ver != "RFB 003.003\n" && ver != "RFB 003.007\n" && ver != "RFB 003.008\n" {
-		return errors.New("unsupported RFB version")
+		return nil, errors.New("unsupported RFB version")
 	}
 	security := byte(1)
-	if pw != "" {
+	if auth != nil {
 		security = 2
 	}
 	if ver == "RFB 003.003\n" {
 		e = v.send([]byte{0, 0, 0, security})
-	} else {
-		if e = v.send([]byte{1, security}); e == nil {
-			var t byte
-			t, e = v.in.ReadByte()
-			if e == nil && t != security {
-				return errors.New("unsupported security selection")
-			}
+	} else if e = v.send([]byte{1, security}); e == nil {
+		var t byte
+		t, e = v.in.ReadByte()
+		if e == nil && t != security {
+			return nil, errors.New("unsupported security selection")
 		}
 	}
 	if e != nil {
-		return e
+		return nil, e
 	}
+	open := noAuth
 	if security == 2 {
-		challenge := make([]byte, 16)
-		if _, e = rand.Read(challenge); e != nil {
-			return e
+		var challenge, reply [16]byte
+		if _, e = rand.Read(challenge[:]); e != nil {
+			return nil, e
 		}
-		if e = v.send(challenge); e != nil {
-			return e
+		if e = v.send(challenge[:]); e != nil {
+			return nil, e
 		}
-		var key [8]byte
-		copy(key[:], pw)
-		for i := range key {
-			key[i] = bits.Reverse8(key[i])
+		if _, e = io.ReadFull(v.in, reply[:]); e != nil {
+			return nil, e
 		}
-		cipher, e := des.NewCipher(key[:])
-		if e != nil {
-			return e
-		}
-		expected := make([]byte, 16)
-		cipher.Encrypt(expected, challenge)
-		cipher.Encrypt(expected[8:], challenge[8:])
-		reply, e := v.read(16)
-		if e != nil {
-			return e
-		}
-		if subtle.ConstantTimeCompare(reply, expected) != 1 {
+		var ok bool
+		if open, ok = auth(challenge, reply); !ok {
 			failure := []byte{0, 0, 0, 1}
 			if ver == "RFB 003.008\n" {
 				failure = append(failure, 0, 0, 0, 6)
 				failure = append(failure, "denied"...)
 			}
 			_ = v.send(failure)
-			return errors.New("viewer authentication failed")
+			return nil, ErrAuthFailed
 		}
 	}
 	if security == 2 || ver == "RFB 003.008\n" {
 		if e = v.send([]byte{0, 0, 0, 0}); e != nil {
-			return e
+			return nil, e
 		}
 	}
 	_, e = v.in.ReadByte()
-	return e
+	return open, e
 }
 func (v *viewer) init(frame *image.RGBA) error {
 	v.format = nativeFormat

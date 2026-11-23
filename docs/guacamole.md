@@ -115,8 +115,9 @@ can reach guacd can ask it to open any configured console.
 
 Keep `replicas: 1`. A bridge serves one viewer, and most BMCs only allow one
 console session anyway. Adding a BMC means adding a container and redeploying
-guacd, so for a large fleet you will want to generate the Deployment from your
-inventory.
+guacd. For a large fleet, or when an application should open consoles on
+demand, use [bmc-broker](broker.md) instead: one sidecar, one-time tickets and
+no BMC credentials in Guacamole.
 
 ## TLS to the BMC
 

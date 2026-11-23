@@ -6,6 +6,8 @@ import socket
 parser = argparse.ArgumentParser()
 parser.add_argument("--guacd-port", default=4822, type=int)
 parser.add_argument("--vnc-port", default=5901, type=int)
+parser.add_argument("--size", default="640x400",
+                    help="expected display size WxH, or 'any' for real hardware")
 args = parser.parse_args()
 sock = socket.create_connection(("127.0.0.1", args.guacd_port), 10)
 sock.settimeout(10)
@@ -48,14 +50,15 @@ for _ in range(200):
     op, *fields = receive()
     if op == "error":
         raise RuntimeError(fields)
-    if op == "size" and fields == ["0", "640", "400"]:
-        saw_size = True
+    if op == "size" and fields[0] == "0" and (
+            args.size == "any" or "x".join(fields[1:3]) == args.size):
+        saw_size = fields[1] + "x" + fields[2]
     if op in ("img", "png", "jpeg"):
         saw_image = True
     if op == "sync":
         send("sync", fields[0])
     if saw_size and saw_image and op in ("end", "sync"):
-        print("guacd received the 640x400 demo display and encoded image")
+        print(f"guacd received the {saw_size} display and encoded image")
         break
 else:
     raise RuntimeError("missing framebuffer")
