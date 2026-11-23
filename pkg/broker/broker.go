@@ -22,6 +22,7 @@ import (
 	"net"
 	"net/netip"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/dateo/bmc-console/pkg/bridge"
@@ -362,7 +363,7 @@ func (b *Broker) endSession(t *ticket, err error) {
 }
 
 func isNormalEnd(err error) bool {
-	return errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed)
+	return errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.ECONNRESET)
 }
 
 // purgeLocked drops expired tickets.

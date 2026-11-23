@@ -4,12 +4,13 @@ import os
 import socket
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--guacd-host", default="127.0.0.1")
 parser.add_argument("--guacd-port", default=4822, type=int)
 parser.add_argument("--vnc-port", default=5901, type=int)
 parser.add_argument("--size", default="640x400",
                     help="expected display size WxH, or 'any' for real hardware")
 args = parser.parse_args()
-sock = socket.create_connection(("127.0.0.1", args.guacd_port), 10)
+sock = socket.create_connection((args.guacd_host, args.guacd_port), 10)
 sock.settimeout(10)
 stream = sock.makefile("rb")
 
