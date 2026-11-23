@@ -183,10 +183,7 @@ func (m *Manager) Close() error {
 
 func (m *Manager) sweep() {
 	defer close(m.done)
-	interval := m.sessionTTL / 2
-	if interval > time.Minute {
-		interval = time.Minute
-	}
+	interval := min(m.sessionTTL/2, time.Minute)
 	if interval < 100*time.Millisecond {
 		interval = 100 * time.Millisecond
 	}

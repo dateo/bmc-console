@@ -47,7 +47,7 @@ func TestISOCloseDuringRead(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		for n := 0; n < 200; n++ {
+		for range 200 {
 			buf, err := iso.ReadAt(0, sectorSize)
 			if err != nil {
 				continue

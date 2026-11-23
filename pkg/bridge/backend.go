@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/color"
-	"image/draw"
 	"log"
 	"sync"
 
@@ -180,42 +178,6 @@ func (h *Hardware) Close() {
 	_ = h.Pointer(h.x, h.y, 0)
 	_ = h.s.Close()
 }
-
-// Demo is a synthetic Backend: pointer moves paint dots, keys recolor a
-// rectangle in the upper left.
-type Demo struct {
-	frame *image.RGBA
-	rev   uint64
-}
-
-// NewDemo returns a fresh 640x400 demo screen.
-func NewDemo() *Demo {
-	d := &Demo{image.NewRGBA(image.Rect(0, 0, 640, 400)), 1}
-	for x := 0; x < 640; x++ {
-		draw.Draw(d.frame, image.Rect(x, 0, x+1, 400), image.NewUniform(color.RGBA{byte(x / 3), 62, 108, 255}), image.Point{}, draw.Src)
-	}
-	return d
-}
-
-func (d *Demo) Frame() (*image.RGBA, uint64, error) { return d.frame, d.rev, nil }
-
-func (d *Demo) Key(k uint32, down bool) error {
-	c := color.RGBA{byte(k), 175, 95, 255}
-	if !down {
-		c.G = 95
-	}
-	draw.Draw(d.frame, image.Rect(8, 8, 88, 72), image.NewUniform(c), image.Point{}, draw.Src)
-	d.rev++
-	return nil
-}
-
-func (d *Demo) Pointer(x, y int, m byte) error {
-	draw.Draw(d.frame, image.Rect(x-3, y-3, x+4, y+4), image.NewUniform(color.RGBA{255, byte(220 - m*10), 32, 255}), image.Point{}, draw.Src)
-	d.rev++
-	return nil
-}
-
-func (d *Demo) Close() {}
 
 // ATEN adapts a legacy Supermicro ATEN Hermon session to Backend.
 type ATEN struct {

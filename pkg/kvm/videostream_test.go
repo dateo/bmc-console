@@ -48,14 +48,14 @@ func TestVideoStreamFeedAndCopyAreSerialized(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 200; i++ {
+		for range 200 {
 			v.Feed(stream)
 		}
 	}()
 	go func() {
 		defer wg.Done()
 		var dst *image.RGBA
-		for i := 0; i < 200; i++ {
+		for range 200 {
 			dst = v.CopyFrame(dst)
 		}
 	}()

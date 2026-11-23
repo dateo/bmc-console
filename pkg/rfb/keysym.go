@@ -5,6 +5,8 @@ package rfb
 // existing layout system, chord parser and clipboard typist keep working
 // against a BMC that speaks RFB.
 
+import "slices"
+
 // Modifier bits of a HID keyboard report, in the order the USB HID
 // specification defines them.
 const (
@@ -98,7 +100,7 @@ func buildBase() map[byte]uint32 {
 		104: 0xffc9, // F13 and above are rare but cheap to carry
 	}
 	// a to z
-	for i := byte(0); i < 26; i++ {
+	for i := range byte(26) {
 		table[4+i] = uint32('a' + i)
 	}
 	// 1 to 9 then 0
@@ -107,11 +109,11 @@ func buildBase() map[byte]uint32 {
 		table[byte(30+i)] = uint32(digits[i])
 	}
 	// F1 to F12
-	for i := byte(0); i < 12; i++ {
+	for i := range byte(12) {
 		table[58+i] = 0xffbe + uint32(i)
 	}
 	// Keypad 1 to 9 then 0
-	for i := byte(0); i < 9; i++ {
+	for i := range byte(9) {
 		table[89+i] = 0xffb1 + uint32(i)
 	}
 	table[98] = 0xffb0
@@ -135,7 +137,7 @@ func buildShifted() map[byte]uint32 {
 		100: '|',
 	}
 	// A to Z
-	for i := byte(0); i < 26; i++ {
+	for i := range byte(26) {
 		table[4+i] = uint32('A' + i)
 	}
 	// The US symbols above the digit row.
@@ -247,10 +249,5 @@ func (k *KeyboardState) Held() bool {
 }
 
 func containsByte(haystack []byte, needle byte) bool {
-	for _, value := range haystack {
-		if value == needle {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(haystack, needle)
 }

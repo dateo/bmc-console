@@ -142,7 +142,7 @@ func (c *Conn) decodeRRE(rect rectangle) error {
 	defer c.screen.mu.Unlock()
 	c.screen.fill(rect.x, rect.y, rect.w, rect.h, background)
 	offset := 0
-	for i := uint32(0); i < count; i++ {
+	for range count {
 		pixel := c.format.Color(body[offset : offset+bpp])
 		offset += bpp
 		x := int(binary.BigEndian.Uint16(body[offset : offset+2]))
@@ -174,8 +174,8 @@ func (c *Conn) decodeHextile(rect rectangle) error {
 				}
 				c.screen.mu.Lock()
 				offset := 0
-				for y := 0; y < tileH; y++ {
-					for x := 0; x < tileW; x++ {
+				for y := range tileH {
+					for x := range tileW {
 						c.screen.setPixel(rect.x+tileX+x, rect.y+tileY+y,
 							c.format.Color(data[offset:offset+bpp]))
 						offset += bpp
@@ -219,7 +219,7 @@ func (c *Conn) decodeHextile(rect rectangle) error {
 			}
 			c.screen.mu.Lock()
 			offset := 0
-			for i := 0; i < count; i++ {
+			for range count {
 				pixel := foreground
 				if flags&hextileSubrectsColoured != 0 {
 					pixel = c.format.Color(body[offset : offset+bpp])

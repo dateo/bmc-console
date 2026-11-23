@@ -293,7 +293,7 @@ func parseChord(names []string) (byte, []byte, error) {
 	var keys []byte
 	seen := make(map[byte]bool)
 	for _, item := range names {
-		for _, rawName := range strings.Split(item, "+") {
+		for rawName := range strings.SplitSeq(item, "+") {
 			name := strings.ToUpper(strings.TrimSpace(rawName))
 			if name == "" {
 				continue
@@ -345,7 +345,7 @@ func buildChordKeys() map[string]byte {
 		"DOWN": 81, "ARROW_DOWN": 81, "UP": 82, "ARROW_UP": 82,
 		"NUM_LOCK": 83,
 	}
-	for i := byte(0); i < 26; i++ {
+	for i := range byte(26) {
 		keys[string(rune('A'+i))] = 4 + i
 	}
 	for i, name := range []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"} {

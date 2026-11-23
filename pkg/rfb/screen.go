@@ -92,8 +92,8 @@ func (s *Screen) setPixel(x, y int, c color.RGBA) {
 
 // fill paints a solid rectangle.
 func (s *Screen) fill(x, y, w, h int, c color.RGBA) {
-	for dy := 0; dy < h; dy++ {
-		for dx := 0; dx < w; dx++ {
+	for dy := range h {
+		for dx := range w {
 			s.setPixel(x+dx, y+dy, c)
 		}
 	}
@@ -107,14 +107,14 @@ func (s *Screen) copyRect(srcX, srcY, dstX, dstY, w, h int) {
 	}
 	// A scratch copy keeps overlapping source and destination correct.
 	scratch := make([]color.RGBA, 0, w*h)
-	for dy := 0; dy < h; dy++ {
-		for dx := 0; dx < w; dx++ {
+	for dy := range h {
+		for dx := range w {
 			scratch = append(scratch, s.at(srcX+dx, srcY+dy))
 		}
 	}
 	i := 0
-	for dy := 0; dy < h; dy++ {
-		for dx := 0; dx < w; dx++ {
+	for dy := range h {
+		for dx := range w {
 			s.setPixel(dstX+dx, dstY+dy, scratch[i])
 			i++
 		}
@@ -136,7 +136,7 @@ func (s *Screen) at(x, y int) color.RGBA {
 }
 
 func copyRegion(dst, src *image.RGBA, w, h int) {
-	for y := 0; y < h; y++ {
+	for y := range h {
 		copy(dst.Pix[dst.PixOffset(0, y):dst.PixOffset(0, y)+w*4],
 			src.Pix[src.PixOffset(0, y):src.PixOffset(0, y)+w*4])
 	}

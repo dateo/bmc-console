@@ -290,9 +290,9 @@ func TestLiveConsoleEncodingTrace(t *testing.T) {
 	cfg.TraceDecoder = true
 	cfg.Logf = func(format string, args ...any) {
 		line := fmt.Sprintf(format, args...)
-		if index := strings.Index(line, "encoding="); index >= 0 {
+		if _, after, ok := strings.Cut(line, "encoding="); ok {
 			mu.Lock()
-			seen[line[index+len("encoding="):]]++
+			seen[after]++
 			mu.Unlock()
 			return
 		}

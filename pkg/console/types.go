@@ -71,7 +71,7 @@ type State struct {
 	// because another viewer holds it. Only Dell controllers do this.
 	WaitingForApproval bool      `json:"waiting_for_approval,omitempty"`
 	OpenedAt           time.Time `json:"opened_at"`
-	LastFrameAt        time.Time `json:"last_frame_at,omitempty"`
+	LastFrameAt        time.Time `json:"last_frame_at"`
 	InsecureTransport  bool      `json:"insecure_transport"`
 }
 

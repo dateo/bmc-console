@@ -34,7 +34,7 @@ func TestLegacyKVMNegotiationObfuscatesSessionKey(t *testing.T) {
 		wantKey := make([]byte, 32)
 		copy(wantKey, "abc")
 		mask := []byte("00112233445566778899aabbccddeeff")
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			wantKey[i] ^= mask[i]
 		}
 		if !bytes.Equal(request[2:], wantKey) {
@@ -106,7 +106,7 @@ func TestLegacyShareNegotiationAcceptsReverseConnection(t *testing.T) {
 	peerRecords := make(chan [legacyShareRecordLength]byte, 2)
 	peerErr := make(chan error, 1)
 	go func() {
-		for i := 0; i < 2; i++ {
+		for range 2 {
 			var record [legacyShareRecordLength]byte
 			if _, err := io.ReadFull(peerLeader, record[:]); err != nil {
 				peerErr <- err

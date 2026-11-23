@@ -389,7 +389,7 @@ func (m *MediaSession) sendAuth(token uint32) error {
 	payload[1] = 0
 	payload[2] = 0x20
 	payload[3] = token
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		payload[4+i] = packWord(key, i*4)
 	}
 	return m.send(words(payload...))
@@ -414,10 +414,7 @@ func (m *MediaSession) announceMedium() error {
 	if err := m.send(inquiry); err != nil {
 		return err
 	}
-	count := uint32(initialBlocks)
-	if blocks < count {
-		count = blocks
-	}
+	count := min(blocks, uint32(initialBlocks))
 	return m.sendBlocks(0, count, cdBlockSize)
 }
 
@@ -518,7 +515,7 @@ func words(values ...uint32) []byte {
 // packWord folds four characters of the key into one 32-bit word.
 func packWord(key string, offset int) uint32 {
 	var word uint32
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		if offset+i < len(key) {
 			word |= uint32(key[offset+i]) << (8 * i)
 		}

@@ -6,6 +6,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -139,17 +140,12 @@ func TestSessionDecodesUpdatesAndRequestsTheNext(t *testing.T) {
 func TestSessionReportsFrameRate(t *testing.T) {
 	_, bmc, sink, _ := startSession(t, ServerInfo{Video: true, KeyboardMouse: true})
 	go func() {
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			_, _ = bmc.conn.Write(hermonUpdate(32, 16, hermon(0, 0, 1, tile(0, 0, []byte{byte(i), 0x7C}, 256))))
 		}
 	}()
 	waitFor(t, "an FPS report counting the frames", func() bool {
-		for _, f := range sink.fpsReports() {
-			if f == 3 {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(sink.fpsReports(), 3)
 	})
 }
 
@@ -249,7 +245,7 @@ func TestSessionSendFailsAfterEnd(t *testing.T) {
 	s, _, _, cancel := startSession(t, ServerInfo{Video: true, KeyboardMouse: true})
 	cancel()
 	<-s.done
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		if err := s.SendKeyEvent(true, 4); err == nil {
 			t.Fatal("send after the session ended reported success")
 		}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -49,7 +50,7 @@ func ExportBuiltInGerman(jsonPath string) (string, string, error) {
 }
 
 func writeStage(target string, data []byte) (string, error) {
-	for attempt := 0; attempt < 100; attempt++ {
+	for attempt := range 100 {
 		path := fmt.Sprintf("%s.bmc-console-new-%d-%d", target, os.Getpid(), attempt)
 		file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 		if os.IsExist(err) {
@@ -115,8 +116,8 @@ func commitPair(jsonStage, jsonTarget, markdownStage, markdownTarget string) err
 }
 
 func restoreBackups(items []*pairItem) {
-	for index := len(items) - 1; index >= 0; index-- {
-		current := items[index]
+	for _, current := range slices.Backward(items) {
+
 		if current.backup != "" {
 			_ = os.Rename(current.backup, current.target)
 			current.backup = ""
@@ -125,8 +126,8 @@ func restoreBackups(items []*pairItem) {
 }
 
 func rollbackCommit(items []*pairItem) {
-	for index := len(items) - 1; index >= 0; index-- {
-		current := items[index]
+	for _, current := range slices.Backward(items) {
+
 		if current.committed {
 			_ = os.Remove(current.target)
 			current.committed = false

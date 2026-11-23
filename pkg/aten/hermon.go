@@ -40,7 +40,7 @@ func decodeHermon(data []byte, f *frame) error {
 
 	if raw {
 		n := min(len(body)/bpp, f.w*f.h)
-		for i := 0; i < n; i++ {
+		for i := range n {
 			putPixel(f, i%f.w, i/f.w, body[i*bpp:], bpp)
 		}
 		return nil

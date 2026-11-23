@@ -41,7 +41,7 @@ func TestScaleAxisMapsAViewportOntoTheFramebuffer(t *testing.T) {
 func TestScaleAxisStaysInsideAndOrdered(t *testing.T) {
 	const from, to = 1371, 1920
 	previous := -1
-	for v := 0; v < from; v++ {
+	for v := range from {
 		got := scaleAxis(v, from, to)
 		if got < 0 || got >= to {
 			t.Fatalf("scaleAxis(%d, %d, %d) = %d, outside the framebuffer", v, from, to, got)

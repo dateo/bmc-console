@@ -43,10 +43,12 @@ docker compose up -d --build
 
 Open <http://127.0.0.1:8080/guacamole/> and log in as `operator` / `change-me`
 (from [`guacamole-home/user-mapping.xml`](../examples/guacamole/guacamole-home/user-mapping.xml)).
-The demo screen is a colour gradient. Moving the pointer paints dots, and
-pressing a key recolours the rectangle in the upper left.
+Guacamole opens the demo test screen. Press a key and the screen shows its
+keysym and the USB HID usage a BMC would receive. Move the pointer over the
+lower area to draw on it. That way you can check keyboard and mouse input through
+the whole chain before you connect real hardware.
 
-![Demo session in Guacamole](images/guacamole-demo.png)
+![The demo screen as Guacamole shows it](images/demo-screen.png)
 
 To connect real hardware, edit `.env`:
 

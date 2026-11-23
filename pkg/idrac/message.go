@@ -185,10 +185,7 @@ func parseClientList(control Control, body []byte) (Control, error) {
 	control.Privileges = binary.LittleEndian.Uint32(body[40:44])
 	control.UserName = trimNul(body[44 : 44+clientNameLen])
 
-	count := binary.LittleEndian.Uint32(body[clientListHead-4 : clientListHead])
-	if count > maxParticipants {
-		count = maxParticipants
-	}
+	count := min(binary.LittleEndian.Uint32(body[clientListHead-4:clientListHead]), maxParticipants)
 	tail := body[clientListHead:]
 	// Whatever is not taken by the viewer records is the caller's own address.
 	addressLen := len(tail) - int(count)*clientRecordLen

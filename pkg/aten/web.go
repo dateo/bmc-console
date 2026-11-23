@@ -112,7 +112,7 @@ func (w *WebSession) Login() error {
 // right after login, so it retries once.
 func (w *WebSession) FetchTicket(host string) (Ticket, error) {
 	var lastErr error
-	for attempt := 0; attempt < 2; attempt++ {
+	for attempt := range 2 {
 		if attempt > 0 {
 			time.Sleep(w.ticketRetryDelay)
 		}

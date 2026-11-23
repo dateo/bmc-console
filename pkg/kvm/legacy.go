@@ -179,7 +179,7 @@ func waitForLegacyMarker(r io.Reader, channel Channel) (uint16, error) {
 	case ChannelCmd:
 		command = legacyCommandCommand
 		var marker [1]byte
-		for i := 0; i < 30; i++ {
+		for range 30 {
 			if _, err := io.ReadFull(r, marker[:]); err != nil {
 				return 0, err
 			}

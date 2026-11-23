@@ -101,7 +101,7 @@ func readFramebufferUpdate(r *bufio.Reader) (FramebufferUpdate, error) {
 	}
 	n := int(binary.BigEndian.Uint16(hdr[1:3]))
 	u := FramebufferUpdate{Rects: make([]Rect, 0, n)}
-	for i := 0; i < n; i++ {
+	for range n {
 		b, err := readBytes(r, 20) // x, y, w, h u16; encoding s32; frame mode u32; data length u32
 		if err != nil {
 			return FramebufferUpdate{}, err

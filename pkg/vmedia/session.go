@@ -345,10 +345,7 @@ func (c *cdImage) sendReadData(data []byte) error {
 	buf = append(buf, header[:]...)
 	buf = append(buf, data...)
 	written, err := c.conn.Write(buf)
-	payloadWritten := written - len(header)
-	if payloadWritten < 0 {
-		payloadWritten = 0
-	}
+	payloadWritten := max(written-len(header), 0)
 	if payloadWritten > len(data) {
 		payloadWritten = len(data)
 	}
@@ -393,10 +390,7 @@ func (c *cdImage) readTOC(cmd []byte) error {
 	if allocation <= 0 {
 		return c.sendSense(0, 0, 0, nil)
 	}
-	length := allocation
-	if length > 412 {
-		length = 412
-	}
+	length := min(allocation, 412)
 	data := make([]byte, length)
 	blocks := int(c.iso.Size() / sectorSize)
 	totalSeconds := float64(blocks)/75.0 + 2.0

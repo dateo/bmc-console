@@ -270,8 +270,8 @@ func parseTicket(location string) (Ticket, error) {
 // encoded inside the path.
 func (c *Client) url(path string) string {
 	u := *c.base
-	if index := strings.IndexByte(path, '?'); index >= 0 {
-		u.Path, u.RawQuery = path[:index], path[index+1:]
+	if before, after, ok := strings.Cut(path, "?"); ok {
+		u.Path, u.RawQuery = before, after
 	} else {
 		u.Path = path
 	}

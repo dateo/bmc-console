@@ -156,7 +156,7 @@ func validFormat(p []byte) bool {
 		return false
 	}
 	var used uint64
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		m := uint64(be.Uint16(p[4+2*i:]))
 		s := p[10+i]
 		if m == 0 || m&(m+1) != 0 || s >= p[0] {
@@ -221,11 +221,11 @@ func (v *viewer) update(b Backend, p []byte) error {
 		off := f.PixOffset(r.Min.X, y)
 		for x := 0; x < r.Dx(); x++ {
 			var val uint32
-			for c := 0; c < 3; c++ {
+			for c := range 3 {
 				max := uint32(be.Uint16(v.format[4+2*c:]))
 				val |= (uint32(f.Pix[off+c]) * max / 255) << v.format[10+c]
 			}
-			for k := 0; k < size; k++ {
+			for k := range size {
 				shift := k
 				if v.format[2] != 0 {
 					shift = size - 1 - k

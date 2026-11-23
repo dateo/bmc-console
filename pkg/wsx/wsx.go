@@ -395,7 +395,7 @@ func (c *Conn) writeFrame(opcode byte, payload []byte) error {
 	header = append(header, mask[:]...)
 	out := make([]byte, 0, len(header)+n)
 	out = append(out, header...)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		out = append(out, payload[i]^mask[i%4])
 	}
 	_, err := c.conn.Write(out)

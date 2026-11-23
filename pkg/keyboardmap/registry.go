@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"regexp"
 	"sort"
 	"strings"
@@ -201,9 +202,7 @@ func buildRegistry(files map[string]*MapFile) (*Registry, error) {
 				}
 				return nil, err
 			}
-			for key, rule := range parent.physical {
-				current.physical[key] = rule
-			}
+			maps.Copy(current.physical, parent.physical)
 			for char, strokes := range parent.text {
 				current.text[char] = append([]Stroke(nil), strokes...)
 			}

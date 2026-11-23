@@ -56,7 +56,7 @@ func TestWriteLegacyHelloHandlesShortWrites(t *testing.T) {
 }
 
 func TestLegacyMediaConnHandlesShortWrites(t *testing.T) {
-	underlying := &legacyShortConn{legacyShortWriter: legacyShortWriter{limit: 2}}
+	underlying := &legacyShortConn{limit: 2}
 	conn := &legacyMediaConn{Conn: underlying}
 	want := []byte{1, 2, 3, 4, 5}
 	n, err := conn.Write(want)

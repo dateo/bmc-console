@@ -22,7 +22,7 @@ func TestILO4ConsoleSession(t *testing.T) {
 	}
 	defer listener.Close()
 	negotiated := make(chan uint16, 2)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		go func() {
 			c, err := listener.Accept()
 			if err != nil {
@@ -67,7 +67,7 @@ func TestILO4ConsoleSession(t *testing.T) {
 		t.Fatalf("state %+v", st)
 	}
 	seen := map[uint16]bool{}
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		select {
 		case n := <-negotiated:
 			seen[n] = true

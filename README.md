@@ -16,16 +16,19 @@ You can also import the packages underneath and build your own console tooling.
 
 ## Quick start
 
-Requires Go 1.25 or later. The module has no external dependencies.
+Requires Go 1.27 or later. The module has no external dependencies.
 
 ```sh
 go install github.com/dateo/bmc-console/cmd/bmc-vnc@latest
 bmc-vnc -mode demo
 ```
 
-Connect a VNC viewer to `127.0.0.1::5901` (display `:1`). In demo mode, moving
-the pointer paints dots and a key press recolours the rectangle in the upper
-left. Each new connection starts with a clean screen.
+Connect a VNC viewer to `127.0.0.1::5901` (display `:1`). The demo shows a test
+screen. Each key event appears with its X11 keysym and the USB HID usage a BMC
+would receive, and moving the pointer over the lower area draws on it (red while
+a button is held). Each new connection starts with a clean screen.
+
+![The bmc-console demo screen](docs/images/demo-screen.png)
 
 ### Connect a BMC
 
@@ -63,8 +66,6 @@ connection to `127.0.0.1:5901` with the bridge's VNC password.
 The full guide is in [docs/guacamole.md](docs/guacamole.md). It has a Docker
 Compose stack you can start as is, a Kubernetes sidecar example, the
 connection parameters, TLS setup, security notes and a troubleshooting table.
-
-![bmc-console demo screen in Apache Guacamole](docs/images/guacamole-demo.png)
 
 ## Container image
 

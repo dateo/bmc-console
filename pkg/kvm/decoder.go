@@ -153,10 +153,7 @@ func (c *colorCache) find(code uint16, col *uint16) int {
 }
 
 func (c *colorCache) prune() {
-	active := c.active
-	if active > len(c.element) {
-		active = len(c.element)
-	}
+	active := min(c.active, len(c.element))
 	i := 0
 	for i < active {
 		if c.element[i].blockCounter == 0 {
@@ -273,7 +270,7 @@ func (d *Decoder) Feed(packet []byte) error {
 	}
 	d.buf = append(d.buf, packet...)
 	limit := (len(d.buf) + 1) * 2048
-	for steps := 0; steps < limit; steps++ {
+	for range limit {
 		ok, err := d.step()
 		if err != nil {
 			return err
@@ -370,12 +367,12 @@ func (d *Decoder) initRemCons() {
 }
 
 func (d *Decoder) initReversal() {
-	for i := 0; i < 256; i++ {
+	for i := range 256 {
 		right := byte(8)
 		left := byte(8)
 		v := byte(i)
 		var rev byte
-		for bit := 0; bit < 8; bit++ {
+		for bit := range 8 {
 			rev <<= 1
 			if v&1 != 0 {
 				if right > byte(bit) {
