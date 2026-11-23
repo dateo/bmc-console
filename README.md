@@ -4,9 +4,10 @@ Open the graphical console of a server's management controller (HPE iLO, Dell
 iDRAC, legacy Supermicro ATEN) in a VNC viewer or in Apache Guacamole, without
 Java applets or vendor clients.
 
-`bmc-console` is a Go module plus a small command, `bmc-vnc`. The command logs
-in to one BMC, opens its remote console and serves it as a standard VNC server.
-You can also import the packages underneath and build your own console tooling.
+`bmc-console` is a Go module plus two commands. `bmc-vnc` logs in to one BMC,
+opens its remote console and serves it as a standard VNC server. `bmc-broker`
+serves many BMCs to Guacamole on demand, with one-time session tickets. You can
+also import the packages underneath and build your own console tooling.
 
 > **Status: prototype.** The protocol code passes its tests against synthetic
 > controllers, and video works on a real HPE iLO 5. Keyboard and mouse input on
@@ -67,16 +68,26 @@ The full guide is in [docs/guacamole.md](docs/guacamole.md). It has a Docker
 Compose stack you can start as is, a Kubernetes sidecar example, the
 connection parameters, TLS setup, security notes and a troubleshooting table.
 
+### Many BMCs: bmc-broker
+
+If an application should open consoles on demand, run `bmc-broker` beside guacd
+instead. The application requests a ticket with the BMC address and
+credentials, gets a one-time VNC password back and hands Guacamole a VNC
+connection with it. BMC credentials never reach Guacamole's database, and one
+broker serves any number of BMCs in the networks you allow. See
+[docs/broker.md](docs/broker.md) for the API and deployment.
+
 ## Container image
 
 ```sh
-docker build -t bmc-console .
+docker build -t bmc-console .                    # bmc-vnc
+docker build -t bmc-broker --target broker .     # bmc-broker
 docker run --rm --network container:<guacd-container> \
   -e BMC_USER -e BMC_PASSWORD -e VNC_PASSWORD \
   bmc-console -mode bmc -host ilo.example.net
 ```
 
-The image is based on `distroless/static`, runs as non-root and carries the
+Both images are based on `distroless/static`, run as non-root and carry the
 license files under `/licenses`.
 
 ## Hardware support
@@ -127,6 +138,7 @@ To drive a console without VNC, call `bridge.Open` and use `Frame`, `Key` and
 | Package | Contents |
 |---|---|
 | `pkg/bridge` | Backends (iLO/iDRAC, ATEN, demo) and the VNC server |
+| `pkg/broker` | One-time session tickets, the ticket API and the multi-BMC VNC listener behind `bmc-broker` |
 | `pkg/console` | Vendor-neutral HPE/Dell session: detection, frames, HID input, virtual media and power hooks |
 | `pkg/ilo`, `pkg/idrac`, `pkg/bmc` | iLO and iDRAC login, Redfish detection, console transports |
 | `pkg/kvm` | iLO console protocol: handshake, AES stream, video decoder, input reports |

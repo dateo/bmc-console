@@ -25,6 +25,10 @@ const MaxPasswordLen = 8
 // OpenFunc opens a Backend after the viewer has authenticated.
 type OpenFunc func(ctx context.Context) (Backend, error)
 
+// ErrAuthFailed reports a viewer whose VNC authentication response was
+// rejected.
+var ErrAuthFailed = errors.New("viewer authentication failed")
+
 // ServeConn authenticates the viewer on c with password (empty selects no
 // authentication), calls open, and relays frames and input until the viewer
 // disconnects, the backend fails, or ctx ends. The backend is closed before
@@ -33,11 +37,29 @@ func ServeConn(ctx context.Context, c net.Conn, password string, open OpenFunc) 
 	if len(password) > MaxPasswordLen {
 		return errors.New("bridge: VNC authentication accepts at most 8 password bytes")
 	}
+	if password == "" {
+		return serveConn(ctx, c, nil, open)
+	}
+	return serveConn(ctx, c, PasswordAuth(password, open), nil)
+}
+
+// ServeConnAuth is ServeConn with classic VNC authentication decided by auth,
+// which also chooses the backend for the viewer. It returns ErrAuthFailed when
+// auth rejects the viewer.
+func ServeConnAuth(ctx context.Context, c net.Conn, auth Authenticator) error {
+	if auth == nil {
+		return errors.New("bridge: nil Authenticator")
+	}
+	return serveConn(ctx, c, auth, nil)
+}
+
+func serveConn(ctx context.Context, c net.Conn, auth Authenticator, noAuth OpenFunc) error {
 	stop := context.AfterFunc(ctx, func() { c.Close() })
 	defer stop()
 	v := viewer{Conn: c, in: bufio.NewReader(c)}
 	_ = c.SetReadDeadline(time.Now().Add(15 * time.Second))
-	if err := v.handshake(password); err != nil {
+	open, err := v.handshake(auth, noAuth)
+	if err != nil {
 		return err
 	}
 	_ = c.SetReadDeadline(time.Time{})
