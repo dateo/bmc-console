@@ -77,6 +77,14 @@ connection with it. BMC credentials never reach Guacamole's database, and one
 broker serves any number of BMCs in the networks you allow. See
 [docs/broker.md](docs/broker.md) for the API and deployment.
 
+### Device web UIs: remote browser (proof of concept)
+
+The broker can also serve a kiosk web browser: a ticket names a URL, the
+broker starts a short-lived container with Chromium on its own VNC server and
+relays it to guacd like a BMC console. Users reach web UIs that only the
+management network can reach, without their browser ever talking to the
+device. See [docs/browser.md](docs/browser.md); the image is in `browser/`.
+
 ## Container image
 
 ```sh
@@ -139,11 +147,12 @@ To drive a console without VNC, call `bridge.Open` and use `Frame`, `Key` and
 |---|---|
 | `pkg/bridge` | Backends (iLO/iDRAC, ATEN, demo) and the VNC server |
 | `pkg/broker` | One-time session tickets, the ticket API and the multi-BMC VNC listener behind `bmc-broker` |
+| `pkg/browser` | Kiosk browser sessions: VNC client backend, Docker and Kubernetes launchers |
 | `pkg/console` | Vendor-neutral HPE/Dell session: detection, frames, HID input, virtual media and power hooks |
 | `pkg/ilo`, `pkg/idrac`, `pkg/bmc` | iLO and iDRAC login, Redfish detection, console transports |
 | `pkg/kvm` | iLO console protocol: handshake, AES stream, video decoder, input reports |
 | `pkg/aten` | Supermicro ATEN: CGI login, JNLP ticket, Hermon decoder, HID input |
-| `pkg/rfb` | RFB client, keysym and pixel helpers |
+| `pkg/rfb` | RFB client (security types None and VNC authentication), keysym and pixel helpers |
 | `pkg/vmedia`, `pkg/wsx`, `pkg/keyboardmap` | Virtual media, WebSocket transport, keyboard layout maps |
 
 ## VNC protocol scope

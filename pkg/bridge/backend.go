@@ -40,6 +40,9 @@ const (
 	ModeBMC Mode = "bmc"
 	// ModeATEN opens a legacy Supermicro ATEN Hermon KVM session.
 	ModeATEN Mode = "aten"
+	// ModeBrowser is a kiosk web browser in a short-lived container. The
+	// broker serves it through its browser launcher; Open does not.
+	ModeBrowser Mode = "browser"
 )
 
 // Options configure Open.

@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/dateo/bmc-console/pkg/bridge"
+	"github.com/dateo/bmc-console/pkg/browser"
 )
 
 // Errors returned by Issue. The HTTP API maps them to status codes.
@@ -52,6 +53,8 @@ type Config struct {
 	// AllowDemo lets tickets use bridge.ModeDemo, which needs no BMC. Useful
 	// for developing and testing integrations.
 	AllowDemo bool
+	// Browser enables bridge.ModeBrowser tickets. Nil refuses them.
+	Browser *BrowserConfig
 
 	// TicketTTL bounds how long an unused ticket stays valid. Default 60s.
 	TicketTTL time.Duration
@@ -73,14 +76,31 @@ type Config struct {
 	Now func() time.Time
 }
 
+// BrowserConfig configures kiosk browser sessions (bridge.ModeBrowser).
+type BrowserConfig struct {
+	// Launcher starts the browser containers.
+	Launcher browser.Launcher
+	// StartTimeout bounds starting a container and reaching its VNC
+	// server. Default 90s.
+	StartTimeout time.Duration
+	// MaxLifetime ends a browser session and removes its container after
+	// this long, however active it is. Default 1h.
+	MaxLifetime time.Duration
+	// Width and Height set the browser screen. Default 1280x800.
+	Width, Height int
+}
+
 // Request asks for a console ticket.
 type Request struct {
-	Mode               bridge.Mode `json:"mode"`
-	Host               string      `json:"host"`
-	Username           string      `json:"username"`
-	Password           string      `json:"password"`
-	InsecureSkipVerify bool        `json:"insecureSkipVerify,omitempty"`
-	AllowPlainATEN     bool        `json:"allowPlainAten,omitempty"`
+	Mode bridge.Mode `json:"mode"`
+	// URL is the page a browser ticket opens. Its host must be in
+	// AllowedNetworks, like a BMC address. Only for bridge.ModeBrowser.
+	URL                string `json:"url,omitempty"`
+	Host               string `json:"host"`
+	Username           string `json:"username"`
+	Password           string `json:"password"`
+	InsecureSkipVerify bool   `json:"insecureSkipVerify,omitempty"`
+	AllowPlainATEN     bool   `json:"allowPlainAten,omitempty"`
 	// User and Asset are opaque audit labels supplied by the caller.
 	User  string `json:"user,omitempty"`
 	Asset string `json:"asset,omitempty"`
@@ -106,6 +126,29 @@ type Session struct {
 type ticket struct {
 	Ticket
 	req Request
+	// browser is the container a browser ticket starts while it waits for
+	// its viewer.
+	browser *launch
+}
+
+// launch is a browser container being started in the background.
+type launch struct {
+	password string
+	cancel   context.CancelFunc
+	done     chan struct{}
+	inst     browser.Instance // set before done closes, nil on error
+	err      error
+}
+
+// discard cancels the launch and removes the container once it is known.
+func (l *launch) discard() {
+	l.cancel()
+	go func() {
+		<-l.done
+		if l.inst != nil {
+			_ = l.inst.Close()
+		}
+	}()
 }
 
 type session struct {
@@ -142,6 +185,17 @@ func New(cfg Config) (*Broker, error) {
 	if cfg.Open == nil {
 		cfg.Open = bridge.Open
 	}
+	if bc := cfg.Browser; bc != nil {
+		if bc.Launcher == nil {
+			return nil, errors.New("broker: Browser needs a Launcher")
+		}
+		if bc.StartTimeout <= 0 {
+			bc.StartTimeout = 90 * time.Second
+		}
+		if bc.MaxLifetime <= 0 {
+			bc.MaxLifetime = time.Hour
+		}
+	}
 	if cfg.Resolver == nil {
 		cfg.Resolver = net.DefaultResolver
 	}
@@ -163,13 +217,25 @@ func New(cfg Config) (*Broker, error) {
 // Issue validates r and returns a one-time ticket for it.
 func (b *Broker) Issue(ctx context.Context, r Request) (Ticket, error) {
 	demo := r.Mode == bridge.ModeDemo
+	web := r.Mode == bridge.ModeBrowser
+	// Like demo tickets, browser tickets do not hold their host exclusively:
+	// several people may browse the same device.
+	shared := demo || web
 	switch {
 	case demo && !b.cfg.AllowDemo:
 		return Ticket{}, fmt.Errorf("%w: demo mode", ErrNotPermitted)
 	case demo:
 		r = Request{Mode: bridge.ModeDemo, User: r.User, Asset: r.Asset}
+	case web && b.cfg.Browser == nil:
+		return Ticket{}, fmt.Errorf("%w: browser mode", ErrNotPermitted)
+	case web:
+		u, err := browser.ValidateURL(r.URL)
+		if err != nil {
+			return Ticket{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+		}
+		r = Request{Mode: bridge.ModeBrowser, URL: u.String(), Host: u.Host, User: r.User, Asset: r.Asset}
 	case r.Mode != bridge.ModeBMC && r.Mode != bridge.ModeATEN:
-		return Ticket{}, fmt.Errorf("%w: mode must be %q or %q", ErrInvalid, bridge.ModeBMC, bridge.ModeATEN)
+		return Ticket{}, fmt.Errorf("%w: mode must be %q, %q or %q", ErrInvalid, bridge.ModeBMC, bridge.ModeATEN, bridge.ModeBrowser)
 	case r.Host == "" || r.Username == "" || r.Password == "":
 		return Ticket{}, fmt.Errorf("%w: host, username and password are required", ErrInvalid)
 	case r.InsecureSkipVerify && !b.cfg.AllowInsecureTLS:
@@ -190,7 +256,7 @@ func (b *Broker) Issue(ctx context.Context, r Request) (Ticket, error) {
 	if len(b.pending) >= b.cfg.MaxPending || len(b.sessions) >= b.cfg.MaxSessions {
 		return Ticket{}, ErrTooMany
 	}
-	if _, busy := b.hosts[r.Host]; busy && !demo {
+	if _, busy := b.hosts[r.Host]; busy && !shared {
 		b.log.Warn("ticket refused", "reason", "busy", "host", r.Host, "user", r.User, "asset", r.Asset)
 		return Ticket{}, ErrBusy
 	}
@@ -204,8 +270,11 @@ func (b *Broker) Issue(ctx context.Context, r Request) (Ticket, error) {
 	}
 	t.ExpiresAt = b.cfg.Now().Add(b.cfg.TicketTTL)
 	b.pending[t.ID] = t
-	if !demo {
+	if !shared {
 		b.hosts[r.Host] = t.ID
+	}
+	if web {
+		t.browser = b.startBrowser(t)
 	}
 	b.log.Info("ticket issued", "ticket", t.ID, "host", r.Host, "mode", string(r.Mode), "user", r.User, "asset", r.Asset, "expires", t.ExpiresAt)
 	return t.Ticket, nil
@@ -321,6 +390,14 @@ func (b *Broker) openSession(ctx context.Context, c net.Conn, t *ticket) (bridge
 	}
 	b.mu.Unlock()
 	b.log.Info("session starting", "ticket", t.ID, "host", t.req.Host, "mode", string(t.req.Mode), "user", t.req.User, "asset", t.req.Asset)
+	if t.browser != nil {
+		backend, err := b.openBrowser(ctx, c, t)
+		if err != nil {
+			cancel()
+			return nil, err
+		}
+		return cancelOnClose{Backend: backend, cancel: cancel}, nil
+	}
 	backend, err := b.cfg.Open(ctx, bridge.Options{
 		Mode: t.req.Mode, Host: t.req.Host, Username: t.req.Username, Password: t.req.Password,
 		InsecureSkipVerify: t.req.InsecureSkipVerify, AllowPlainATEN: t.req.AllowPlainATEN,
@@ -378,6 +455,9 @@ func (b *Broker) purgeLocked() {
 }
 
 func (b *Broker) dropTicketLocked(t *ticket) {
+	if t.browser != nil {
+		t.browser.discard()
+	}
 	delete(b.pending, t.ID)
 	if b.hosts[t.req.Host] == t.ID {
 		delete(b.hosts, t.req.Host)
@@ -449,4 +529,62 @@ func randomString(n int) string {
 		}
 	}
 	return string(out)
+}
+
+// startBrowser starts the container for a browser ticket in the background,
+// so it is usually ready by the time the viewer connects.
+func (b *Broker) startBrowser(t *ticket) *launch {
+	bc := b.cfg.Browser
+	ctx, cancel := context.WithTimeout(context.Background(), bc.StartTimeout)
+	l := &launch{password: randomString(bridge.MaxPasswordLen), cancel: cancel, done: make(chan struct{})}
+	go func() {
+		defer close(l.done)
+		defer cancel()
+		l.inst, l.err = bc.Launcher.Launch(ctx, browser.Spec{
+			URL: t.req.URL, Password: l.password, Session: t.ID,
+			Width: bc.Width, Height: bc.Height,
+			// The platform's own limit is a backstop: the broker ends the
+			// session at MaxLifetime; this removes a container it lost.
+			MaxLifetime: bc.MaxLifetime + bc.StartTimeout + b.cfg.TicketTTL,
+		})
+		if l.err != nil {
+			b.log.Warn("browser start failed", "ticket", t.ID, "host", t.req.Host, "error", l.err.Error())
+		}
+	}()
+	return l
+}
+
+// openBrowser waits for the ticket's container and connects to its VNC
+// server. The session ends at MaxLifetime by closing the viewer connection.
+func (b *Broker) openBrowser(ctx context.Context, viewer net.Conn, t *ticket) (bridge.Backend, error) {
+	bc := b.cfg.Browser
+	l := t.browser
+	ctx, cancel := context.WithTimeout(ctx, bc.StartTimeout)
+	defer cancel()
+	select {
+	case <-l.done:
+	case <-ctx.Done():
+		l.discard()
+		return nil, fmt.Errorf("broker: browser did not start: %w", ctx.Err())
+	}
+	if l.err != nil {
+		return nil, fmt.Errorf("broker: browser did not start: %w", l.err)
+	}
+	client, err := browser.DialRetry(ctx, l.inst.Addr(), l.password, 250*time.Millisecond)
+	if err != nil {
+		_ = l.inst.Close()
+		return nil, err
+	}
+	limit := time.AfterFunc(bc.MaxLifetime, func() {
+		b.log.Info("browser session reached its maximum lifetime", "ticket", t.ID, "host", t.req.Host)
+		viewer.Close()
+	})
+	client.OnClose(func() {
+		limit.Stop()
+		if err := l.inst.Close(); err != nil {
+			b.log.Warn("browser container removal failed", "ticket", t.ID, "error", err.Error())
+		}
+	})
+	b.log.Info("browser connected", "ticket", t.ID, "host", t.req.Host, "addr", l.inst.Addr())
+	return client, nil
 }

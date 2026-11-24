@@ -1,0 +1,20 @@
+{
+  "DownloadRestrictions": 3,
+  "PasswordManagerEnabled": false,
+  "AutofillAddressEnabled": false,
+  "AutofillCreditCardEnabled": false,
+  "BrowserSignin": 0,
+  "SyncDisabled": true,
+  "PrintingEnabled": false,
+  "DeveloperToolsAvailability": 2,
+  "ExtensionInstallBlocklist": ["*"],
+  "URLBlocklist": ["file://*", "chrome://*", "chrome-extension://*", "view-source:*", "devtools://*"],
+  "URLAllowlist": ["chrome://newtab"],
+  "DefaultNotificationsSetting": 2,
+  "DefaultGeolocationSetting": 2,
+  "AudioCaptureAllowed": false,
+  "VideoCaptureAllowed": false,
+  "MetricsReportingEnabled": false,
+  "SafeBrowsingProtectionLevel": 0,
+  "TranslateEnabled": false
+}

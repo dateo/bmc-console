@@ -3,7 +3,6 @@ package bridge
 import (
 	"bufio"
 	"bytes"
-	"crypto/des"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/binary"
@@ -11,9 +10,10 @@ import (
 	"fmt"
 	"image"
 	"io"
-	"math/bits"
 	"net"
 	"time"
+
+	"github.com/dateo/bmc-console/pkg/rfb"
 )
 
 var be = binary.BigEndian
@@ -77,19 +77,7 @@ type Authenticator func(challenge, response [16]byte) (open OpenFunc, ok bool)
 // VNCResponse computes the reply a viewer sends for password and challenge:
 // DES-ECB with the bit-reversed, zero-padded first 8 password bytes as key.
 func VNCResponse(password string, challenge [16]byte) [16]byte {
-	var key [8]byte
-	copy(key[:], password)
-	for i := range key {
-		key[i] = bits.Reverse8(key[i])
-	}
-	c, err := des.NewCipher(key[:])
-	if err != nil {
-		panic(err) // unreachable: the key is always 8 bytes
-	}
-	var out [16]byte
-	c.Encrypt(out[:8], challenge[:8])
-	c.Encrypt(out[8:], challenge[8:])
-	return out
+	return rfb.VNCAuthResponse(password, challenge)
 }
 
 // PasswordAuth returns an Authenticator that accepts one fixed password.

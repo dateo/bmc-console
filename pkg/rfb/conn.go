@@ -86,6 +86,10 @@ type Conn struct {
 
 	// logf receives decoder diagnostics when a caller asks for them.
 	logf func(format string, args ...any)
+
+	// password answers classic VNC authentication (SetPassword).
+	password    string
+	hasPassword bool
 }
 
 // SetLogger installs a diagnostic sink. It is meant for tracking down
@@ -191,7 +195,15 @@ func (c *Conn) negotiateSecurity(major, minor int) error {
 			return err
 		}
 		switch binary.BigEndian.Uint32(raw) {
-		case 1:
+		case securityNone:
+			return c.readSecurityResult(major, minor)
+		case securityVNCAuth:
+			if !c.hasPassword {
+				return errors.New("server demands VNC authentication but no password is set")
+			}
+			if err := c.answerVNCAuth(); err != nil {
+				return err
+			}
 			return c.readSecurityResult(major, minor)
 		case 0:
 			return c.readFailureReason("connection refused")
@@ -211,13 +223,27 @@ func (c *Conn) negotiateSecurity(major, minor int) error {
 		return err
 	}
 	// Type 1 is None. The iDRAC authenticates through its console ticket
-	// before RFB starts, so None is what it offers.
+	// before RFB starts, so None is what it offers. Type 2 is classic VNC
+	// authentication, used when the caller set a password.
 	for _, t := range types {
-		if t == 1 {
-			if _, err := c.write([]byte{1}); err != nil {
+		if t == securityNone {
+			if _, err := c.write([]byte{securityNone}); err != nil {
 				return err
 			}
 			return c.readSecurityResult(major, minor)
+		}
+	}
+	if c.hasPassword {
+		for _, t := range types {
+			if t == securityVNCAuth {
+				if _, err := c.write([]byte{securityVNCAuth}); err != nil {
+					return err
+				}
+				if err := c.answerVNCAuth(); err != nil {
+					return err
+				}
+				return c.readSecurityResult(major, minor)
+			}
 		}
 	}
 	return fmt.Errorf("server offers security types %v, none of which this client implements", types)

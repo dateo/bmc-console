@@ -50,6 +50,7 @@ type fixture struct {
 	api    *httptest.Server
 	opened *opened
 	logs   *bytes.Buffer
+	lw     *lockedWriter
 	now    time.Time
 	mu     sync.Mutex
 }
@@ -57,10 +58,11 @@ type fixture struct {
 func newFixture(t *testing.T, mutate func(*Config)) *fixture {
 	t.Helper()
 	f := &fixture{t: t, opened: &opened{}, logs: &bytes.Buffer{}, now: time.Unix(1_800_000_000, 0)}
+	f.lw = &lockedWriter{w: f.logs}
 	cfg := Config{
 		AllowedNetworks: []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")},
 		Open:            f.opened.open,
-		Logger:          slog.New(slog.NewJSONHandler(&lockedWriter{w: f.logs}, nil)),
+		Logger:          slog.New(slog.NewJSONHandler(f.lw, nil)),
 		Now:             func() time.Time { f.mu.Lock(); defer f.mu.Unlock(); return f.now },
 	}
 	if mutate != nil {

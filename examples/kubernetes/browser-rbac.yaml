@@ -1,0 +1,87 @@
+# What bmc-broker needs for kiosk browser sessions (docs/browser.md), in the
+# namespace that receives the browser Pods. Run the broker with
+#
+#   -browser-launcher kubernetes -browser-image <image> \
+#   -browser-label role=remote-browser
+#
+# and set POD_NAME / POD_UID from the downward API so its Pod owns every
+# browser Pod:
+#
+#   env:
+#     - name: POD_NAME
+#       valueFrom: {fieldRef: {fieldPath: metadata.name}}
+#     - name: POD_UID
+#       valueFrom: {fieldRef: {fieldPath: metadata.uid}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bmc-broker
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: bmc-broker-browser
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [create, get, delete]
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [create, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: bmc-broker-browser
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: bmc-broker-browser
+subjects:
+  - kind: ServiceAccount
+    name: bmc-broker
+---
+# Browser Pods: VNC only from the broker (guacd's Pod), and out only to the
+# device networks and DNS. Adjust the CIDRs; keep cluster, service and
+# metadata ranges out of them.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: remote-browser
+spec:
+  podSelector:
+    matchLabels: {role: remote-browser}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app: guacd}
+      ports:
+        - {protocol: TCP, port: 5900}
+  egress:
+    - to:
+        - ipBlock: {cidr: 10.20.0.0/16}
+      ports:
+        - {protocol: TCP, port: 80}
+        - {protocol: TCP, port: 443}
+        - {protocol: TCP, port: 8080}
+        - {protocol: TCP, port: 8443}
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+---
+# Counts every Pod in the namespace: use a dedicated namespace for browser
+# Pods (-browser-namespace) or include the broker's own Pods in the numbers.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: remote-browser
+spec:
+  hard:
+    pods: "20"
+    limits.memory: 20Gi
