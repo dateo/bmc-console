@@ -51,6 +51,12 @@ type Kubernetes struct {
 	// of RuntimeDefault, e.g. one that allows Chromium's user-namespace
 	// sandbox.
 	SeccompLocalhostProfile string
+	// AppArmorLocalhostProfile selects an AppArmor profile loaded on the
+	// nodes (Kubernetes 1.30+). Needed where the host restricts
+	// unprivileged user namespaces (Ubuntu's
+	// kernel.apparmor_restrict_unprivileged_userns=1): the profile must
+	// allow `userns,` for Chromium's sandbox.
+	AppArmorLocalhostProfile string
 	// CPURequest, CPULimit, MemoryRequest and MemoryLimit are Kubernetes
 	// quantities. Defaults: 250m, 1, 512Mi, 1Gi.
 	CPURequest, CPULimit, MemoryRequest, MemoryLimit string
@@ -213,16 +219,20 @@ func (k *Kubernetes) podManifest(s Spec, secretName string) map[string]any {
 		}
 		return v
 	}
+	podSecurity := map[string]any{
+		"runAsNonRoot": true, "runAsUser": 1000, "runAsGroup": 1000, "fsGroup": 1000,
+		"seccompProfile": seccomp,
+	}
+	if k.AppArmorLocalhostProfile != "" {
+		podSecurity["appArmorProfile"] = map[string]any{"type": "Localhost", "localhostProfile": k.AppArmorLocalhostProfile}
+	}
 	spec := map[string]any{
 		"restartPolicy":                 "Never",
 		"activeDeadlineSeconds":         int64(s.MaxLifetime / time.Second),
 		"automountServiceAccountToken":  false,
 		"enableServiceLinks":            false,
 		"terminationGracePeriodSeconds": 2,
-		"securityContext": map[string]any{
-			"runAsNonRoot": true, "runAsUser": 1000, "runAsGroup": 1000, "fsGroup": 1000,
-			"seccompProfile": seccomp,
-		},
+		"securityContext":               podSecurity,
 		"containers": []map[string]any{{
 			"name":            "browser",
 			"image":           k.Image,

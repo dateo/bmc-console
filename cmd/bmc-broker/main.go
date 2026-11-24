@@ -43,10 +43,10 @@ func (m *multi) Set(v string) error { *m = append(*m, v); return nil }
 
 // browserFlags configure kiosk browser sessions (docs/browser.md).
 type browserFlags struct {
-	launcher, image, namespace, runtimeClass, seccomp, size string
-	noSandbox, ignoreCertErrors                             bool
-	maxLifetime, startTimeout                               time.Duration
-	labels, dockerArgs                                      multi
+	launcher, image, namespace, runtimeClass, seccomp, apparmor, size string
+	noSandbox, ignoreCertErrors                                       bool
+	maxLifetime, startTimeout                                         time.Duration
+	labels, dockerArgs                                                multi
 }
 
 func (f *browserFlags) register() {
@@ -55,6 +55,7 @@ func (f *browserFlags) register() {
 	flag.StringVar(&f.namespace, "browser-namespace", "", "namespace for browser pods (default: the broker's own)")
 	flag.StringVar(&f.runtimeClass, "browser-runtime-class", "", "runtimeClassName for browser pods, e.g. gvisor")
 	flag.StringVar(&f.seccomp, "browser-seccomp-profile", "", "node-local seccomp profile for browser pods (default RuntimeDefault)")
+	flag.StringVar(&f.apparmor, "browser-apparmor-profile", "", "node-local AppArmor profile for browser pods; must allow userns where the host restricts it")
 	flag.StringVar(&f.size, "browser-size", "1280x800", "browser screen size")
 	flag.BoolVar(&f.noSandbox, "browser-no-sandbox", false, "disable Chromium's sandbox (only under a sandboxing runtime class)")
 	flag.BoolVar(&f.ignoreCertErrors, "browser-ignore-cert-errors", false, "let the browser accept self-signed device certificates")
@@ -89,7 +90,8 @@ func (f *browserFlags) config() (*broker.BrowserConfig, error) {
 	case "kubernetes":
 		k := &browser.Kubernetes{
 			Namespace: f.namespace, Image: f.image, RuntimeClassName: f.runtimeClass,
-			SeccompLocalhostProfile: f.seccomp, Env: env, Labels: map[string]string{},
+			SeccompLocalhostProfile: f.seccomp, AppArmorLocalhostProfile: f.apparmor,
+			Env: env, Labels: map[string]string{},
 		}
 		for _, l := range f.labels {
 			key, v, ok := strings.Cut(l, "=")

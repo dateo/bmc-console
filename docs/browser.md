@@ -75,6 +75,7 @@ bmc-broker -allow-net 10.20.0.0/16 \
 | `-browser-namespace` | the broker's own | Namespace for browser Pods |
 | `-browser-runtime-class` | | `runtimeClassName`, e.g. `gvisor` or `kata` |
 | `-browser-seccomp-profile` | `RuntimeDefault` | Node-local seccomp profile for browser Pods |
+| `-browser-apparmor-profile` | runtime default | Node-local AppArmor profile for browser Pods (Kubernetes 1.30+); see "Security" |
 | `-browser-no-sandbox` | `false` | Disable Chromium's sandbox; only together with a sandboxing runtime class |
 | `-browser-ignore-cert-errors` | `false` | Let the browser accept self-signed certificates |
 | `-browser-size` | `1280x800` | Screen size |
@@ -124,7 +125,12 @@ A browser is a large attack surface, and this one runs inside your network.
 - **The browser itself.** Chromium's sandbox needs user namespaces, which the
   default container seccomp profiles block. Either run under a sandboxing
   runtime class (gVisor, Kata) and set `-browser-no-sandbox`, or provide a
-  seccomp profile that permits Chromium's sandbox. Do not disable the sandbox
+  seccomp profile that permits Chromium's sandbox (`clone`/`unshare` with
+  namespace flags, `chroot`). On hosts that restrict unprivileged user
+  namespaces through AppArmor (`kernel.apparmor_restrict_unprivileged_userns=1`,
+  Ubuntu 23.10+), also load an AppArmor profile that allows `userns,` and set
+  `-browser-apparmor-profile`; an unconfined profile does not help, and
+  turning the sysctl off loosens the whole host. Do not disable the sandbox
   under a plain runc runtime.
 - **The broker's own rights.** With the Kubernetes launcher, the broker can
   create Pods and Secrets in one namespace. Use a dedicated namespace.

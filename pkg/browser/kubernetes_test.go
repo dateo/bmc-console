@@ -148,6 +148,7 @@ func TestKubernetesLaunch(t *testing.T) {
 		{[]any{"activeDeadlineSeconds"}, float64(3600)},
 		{[]any{"securityContext", "runAsNonRoot"}, true},
 		{[]any{"securityContext", "seccompProfile", "type"}, "RuntimeDefault"},
+		{[]any{"securityContext", "appArmorProfile"}, nil},
 		{[]any{"containers", 0, "securityContext", "readOnlyRootFilesystem"}, true},
 		{[]any{"containers", 0, "securityContext", "allowPrivilegeEscalation"}, false},
 		{[]any{"containers", 0, "securityContext", "capabilities", "drop", 0}, "ALL"},
@@ -226,4 +227,27 @@ func TestKubernetesLaunchCleansUp(t *testing.T) {
 			t.Fatalf("API called for an invalid URL: %v", f.calls)
 		}
 	})
+}
+
+func TestKubernetesNodeProfiles(t *testing.T) {
+	k := &Kubernetes{Image: "img", SeccompLocalhostProfile: "profiles/bmc-browser.json", AppArmorLocalhostProfile: "bmc-browser"}
+	sc := lookup(k.podManifest(Spec{URL: "https://10.1.2.3/", MaxLifetime: time.Hour}, "s"), "spec", "securityContext")
+	// podManifest builds Go maps; round-trip through JSON as the API sees it.
+	raw, _ := json.Marshal(sc)
+	var got map[string]any
+	_ = json.Unmarshal(raw, &got)
+	for _, check := range []struct {
+		path []any
+		want any
+	}{
+		{[]any{"seccompProfile", "type"}, "Localhost"},
+		{[]any{"seccompProfile", "localhostProfile"}, "profiles/bmc-browser.json"},
+		{[]any{"appArmorProfile", "type"}, "Localhost"},
+		{[]any{"appArmorProfile", "localhostProfile"}, "bmc-browser"},
+		{[]any{"runAsNonRoot"}, true},
+	} {
+		if v := lookup(got, check.path...); v != check.want {
+			t.Errorf("securityContext%v = %v, want %v", check.path, v, check.want)
+		}
+	}
 }
